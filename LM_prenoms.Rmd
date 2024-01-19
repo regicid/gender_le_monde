@@ -1,0 +1,71 @@
+---
+title: "LM_Gender_2"
+output: html_document
+date: "2024-01-19"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(readr)
+library(tidyverse)
+```
+
+
+# 1. Acquisition des données
+
+On utilise la base prénoms 2017 de l'INSEE.
+RQ : le site web de l'INSEE est passé à une nouvelle base en 2019
+
+```{r}
+prenoms <- read_csv2("nat2021.csv")
+head(prenoms)
+nrow(prenoms)
+min(prenoms$annais)
+```
+
+```{r}
+## Il faut passer de données annuelles à des données agrégées par prénom et par sexe dans un premier temps
+prenoms <- prenoms %>%
+  select(-annais) %>%
+  group_by(sexe, preusuel) %>%
+  summarise(n = sum(nombre)) # OK
+```
+
+```{r}
+## Ensuite on calcule le sex-ratio (masculinité) par prénom
+prenoms <- prenoms %>%
+  group_by(preusuel) %>%
+  summarise(sexratio_prenom = sum(n[sexe == 1])/(sum(n[sexe == 2])+sum(n[sexe == 1])),
+            n = sum(n)) # OK
+nrow(prenoms)
+```
+
+
+## 2.2. Passage en minuscules
+
+Les prénoms INSEE sont donnés en majuscules. Pas pratique.
+
+```{r}
+## Finalement on passe en minuscule (les textes analysés sont en général en minuscules lorsque passés en tidy)
+prenoms_clean <- prenoms %>% mutate(preusuel = str_to_lower(preusuel))
+```
+
+Remarque : on pourrait aussi garder la première lettre en majuscule. Si on a un texte où les majuscules sont gardées cela permettrait de désambiguiser Février (mais pas Chine)
+
+```{r}
+## On enlève la catégorie des prénoms rares qui rajoute une ligne inutile au tableau
+prenoms_clean <- prenoms_clean %>%
+  filter(!(preusuel == "_prenoms_rares"))
+```
+
+```{r}
+prenoms_clean <- prenoms_clean %>%
+  filter(n>=100)
+```
+
+```{r}
+write.csv2(prenoms_clean, file="prenoms_clean.csv", row.names = FALSE)
+```
